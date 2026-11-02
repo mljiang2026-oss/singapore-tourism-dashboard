@@ -6,6 +6,10 @@ The dashboard is interactive. Run `app.py` locally for filters, hover details an
 the complete set of storytelling tabs. A public Streamlit URL will be added after
 the final deployment is connected to this repository.
 
+## Dashboard preview
+
+![Singapore Tourism Recovery dashboard overview](outputs/figures/dashboard_overview.jpg)
+
 ## Research question
 
 How did international visitor arrivals from major source markets recover relative to 2019, and how closely did this recovery align with Singapore's gazetted-hotel performance between 2019 and 2025?
