@@ -9,6 +9,7 @@ from src.analysis import (
     annual_total_arrivals,
     composition_with_other,
     major_market_recovery,
+    paired_recovery_correlation,
 )
 
 
@@ -68,3 +69,22 @@ def test_annual_headline_summaries(visitors: pd.DataFrame, hotels: pd.DataFrame)
 def test_market_comparison_rejects_missing_year(visitors: pd.DataFrame) -> None:
     with pytest.raises(ValueError, match="missing comparison years"):
         annual_market_comparison(visitors, 2019, 2026)
+
+
+def test_recovery_correlation_aligns_dates_and_uses_both_indices() -> None:
+    arrivals_index = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2023-01-01", "2023-02-01", "2023-03-01"]),
+            "value": [40.0, 70.0, 100.0],
+        }
+    )
+    revenue_index = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2023-03-01", "2023-01-01", "2023-02-01"]),
+            "value": [110.0, 50.0, 80.0],
+        }
+    )
+
+    assert paired_recovery_correlation(
+        arrivals_index, revenue_index
+    ) == pytest.approx(1.0)

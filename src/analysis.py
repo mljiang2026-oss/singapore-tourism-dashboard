@@ -132,3 +132,23 @@ def annual_hotel_summary(hotels: pd.DataFrame) -> pd.DataFrame:
     for piece in pieces[1:]:
         result = result.merge(piece, on="year", how="outer")
     return result.sort_values("year")
+
+
+def paired_recovery_correlation(
+    arrivals_index: pd.DataFrame,
+    revenue_index: pd.DataFrame,
+) -> float:
+    """Return the correlation between aligned monthly recovery-index values."""
+    paired = arrivals_index[["date", "value"]].rename(
+        columns={"value": "arrivals_index"}
+    ).merge(
+        revenue_index[["date", "value"]].rename(
+            columns={"value": "revenue_index"}
+        ),
+        on="date",
+        how="inner",
+        validate="one_to_one",
+    )
+    if len(paired) < 2:
+        raise ValueError("At least two aligned months are required for correlation")
+    return float(paired["arrivals_index"].corr(paired["revenue_index"]))

@@ -2,9 +2,9 @@
 
 This DS608 group project examines how Singapore's international visitor arrivals recovered after the COVID-19 disruption and whether the recovery aligned with gazetted-hotel occupancy, room rates and room revenue.
 
-> The dashboard is interactive. The earlier static overview image has been removed
-> because it no longer represents the current storytelling tabs. Run `app.py` locally
-> or use the future Streamlit deployment URL to view the latest interface.
+The dashboard is interactive. Run `app.py` locally for filters, hover details and
+the complete set of storytelling tabs. A public Streamlit URL will be added after
+the final deployment is connected to this repository.
 
 ## Research question
 
@@ -19,8 +19,8 @@ How did international visitor arrivals from major source markets recover relativ
 - View monthly arrivals and a same-month 2019 recovery index.
 - Rank recovery among the 15 largest source markets in 2019.
 - Compare the 2019 and 2025 visitor mix and changes in market share.
-- Examine hotel occupancy, average room rates and room revenue.
-- Compare the recovery and monthly correlation of total arrivals and hotel room revenue.
+- Examine hotel occupancy, nominal average room rates and nominal room revenue.
+- Compare the recovery and monthly correlation of total arrivals and nominal hotel room revenue.
 - Read interpretation and causality cautions alongside the charts.
 - Download filtered visitor and hotel data.
 
@@ -90,7 +90,7 @@ streamlit run app.py
 ## Run the tests
 
 ```bash
-pytest
+python -m pytest
 ```
 
 ## Streamlit deployment
@@ -116,7 +116,8 @@ The annual market ranking divides each market's 2025 annual arrivals by its 2019
 annual arrivals. The ranking is limited to the 15 largest markets in 2019 so that a
 very small starting value does not produce a misleading "fastest recovery" result.
 Visitor composition is measured as each country market's share of all country-market
-arrivals. Hotel comparisons are descriptive; correlation does not establish causality.
+arrivals. The descriptive correlation compares the two same-month 2019 recovery
+indices over the selected period; it does not establish causality.
 
 ## Preliminary findings
 

@@ -14,6 +14,7 @@ from src.analysis import (
     annual_total_arrivals,
     composition_with_other,
     major_market_recovery,
+    paired_recovery_correlation,
 )
 
 
@@ -23,6 +24,20 @@ VISITOR_FILE = DATA_DIR / "visitor_arrivals_2019_2025.csv"
 HOTEL_FILE = DATA_DIR / "hotel_statistics_2019_2025.csv"
 BASELINE_YEAR = 2019
 MAJOR_MARKET_COUNT = 15
+
+PRIMARY_COLOUR = "#0F766E"
+ACCENT_COLOUR = "#F59E0B"
+MARKET_COLOURS = {
+    "Australia": "#0072B2",
+    "China": "#D55E00",
+    "India": "#CC79A7",
+    "Indonesia": "#E69F00",
+    "Japan": "#56B4E9",
+    "Malaysia": "#009E73",
+    "Philippines": "#8C6D31",
+    "USA": "#4D4D4D",
+    "Other markets": "#B8C2CC",
+}
 
 ARRIVALS_SOURCE = (
     "https://data.gov.sg/datasets/"
@@ -34,7 +49,7 @@ HOTEL_SOURCE = (
 )
 
 PHASES = (
-    ("2019 baseline", "2019-01-01", "2019-12-31", "#F59E0B", 0.06),
+    ("2019 baseline", "2019-01-01", "2019-12-31", ACCENT_COLOUR, 0.06),
     ("Pandemic shock", "2020-03-01", "2021-12-31", "#64748B", 0.13),
     ("Reopening", "2022-01-01", "2022-12-31", "#3B82F6", 0.07),
     ("Recovery", "2023-01-01", "2025-12-31", "#10B981", 0.05),
@@ -124,14 +139,57 @@ def polish_figure(figure, *, legend_title: str = "") -> None:
     figure.update_layout(
         hovermode="x unified",
         legend_title_text=legend_title,
+        font=dict(color="#1F2937"),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=10, r=10, t=45, b=10),
     )
 
 
-st.title("Singapore Inbound Tourism and Hotel Recovery")
+def use_horizontal_legend(figure) -> None:
+    """Keep multi-series charts wide by placing the legend above the plot."""
+    figure.update_layout(
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0,
+        )
+    )
+
+
+def show_phase_key() -> None:
+    """Display one compact key instead of repeating labels inside small charts."""
+    items = []
+    for phase, _start, _end, colour, _opacity in PHASES:
+        items.append(
+            "<span class='phase-item'>"
+            f"<span class='phase-swatch' style='background:{colour}'></span>"
+            f"{phase}</span>"
+        )
+    st.markdown(
+        "<div class='phase-key'>" + "".join(items) + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+st.markdown(
+    """
+    <style>
+    .block-container {padding-top: 2.4rem; padding-bottom: 3rem;}
+    .phase-key {display:flex; flex-wrap:wrap; gap:.65rem 1rem; margin:.1rem 0 .8rem;}
+    .phase-item {display:inline-flex; align-items:center; gap:.35rem; font-size:.84rem; color:#475569;}
+    .phase-swatch {width:.72rem; height:.72rem; border-radius:.18rem; opacity:.65;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.title("Singapore Tourism Recovery")
 st.caption(
-    "A descriptive account of the shock, reopening and changing visitor mix, "
-    "using monthly official data from 2019 to 2025."
+    "International visitor arrivals, source-market change and gazetted-hotel "
+    "performance using monthly official data, January 2019-December 2025."
 )
 
 if not VISITOR_FILE.exists() or not HOTEL_FILE.exists():
@@ -158,36 +216,11 @@ year_range = st.sidebar.slider(
     max_value=latest_complete_year,
     value=(BASELINE_YEAR, latest_complete_year),
 )
-selected_markets = st.sidebar.multiselect(
-    "Source markets",
-    options=countries,
-    default=default_markets,
-    help="Source market means place of residence, not citizenship.",
-)
-show_2019_reference = st.sidebar.checkbox(
-    "Show 2019 recovery reference", value=True
-)
 st.sidebar.caption(
-    "Headline findings compare the complete years 2019 and 2025. "
-    "The filters control the exploratory charts."
+    "The year filter controls the Markets and Hotels pages. Overview and Visitor "
+    "mix use the complete-year comparison of 2019 and 2025."
 )
-
-if not selected_markets:
-    st.warning("Select at least one source market from the sidebar.")
-    st.stop()
-
-country_data = visitors[
-    (visitors["market_type"] == "country")
-    & (visitors["market"].isin(selected_markets))
-].copy()
-filtered_visitors = country_data[
-    country_data["year"].between(year_range[0], year_range[1])
-].copy()
 filtered_hotels = hotels[hotels["year"].between(year_range[0], year_range[1])].copy()
-
-if filtered_visitors.empty:
-    st.warning("No visitor-arrival data are available for the selected filters.")
-    st.stop()
 
 market_comparison = annual_market_comparison(
     visitors, BASELINE_YEAR, latest_complete_year
@@ -217,39 +250,39 @@ revenue_change_pct = (
     - 1
 ) * 100
 
-headline_1, headline_2, headline_3, headline_4 = st.columns(4)
-headline_1.metric(
-    f"Visitors in {latest_complete_year}",
-    f"{latest_total / 1_000_000:.2f}M",
-    f"{total_recovery_pct - 100:.1f}% vs 2019",
-)
-headline_2.metric(
-    "Fastest major recovery",
-    str(fastest_market["market"]),
-    f"{fastest_market['recovery_pct']:.1f}% of 2019",
-)
-headline_3.metric(
-    "Hotel room revenue",
-    f"S${latest_hotel['room_revenue_sgd_thousand'] / 1_000_000:.2f}B",
-    f"{revenue_change_pct:+.1f}% vs 2019",
-)
-headline_4.metric(
-    "Hotel occupancy",
-    f"{latest_hotel['occupancy_pct']:.1f}%",
-    f"{occupancy_change_pp:+.1f} pp vs 2019",
-)
-
 story_tab, markets_tab, mix_tab, hotels_tab, methods_tab = st.tabs(
     [
-        "Recovery story",
-        "Market explorer",
+        "Overview",
+        "Markets",
         "Visitor mix",
         "Hotels",
-        "Data and methodology",
+        "Methods",
     ]
 )
 
 with story_tab:
+    headline_1, headline_2, headline_3, headline_4 = st.columns(4)
+    headline_1.metric(
+        f"Visitors in {latest_complete_year}",
+        f"{latest_total / 1_000_000:.2f}M",
+        f"{total_recovery_pct - 100:.1f}% vs 2019",
+    )
+    headline_2.metric(
+        "Fastest major recovery",
+        str(fastest_market["market"]),
+        f"{fastest_market['recovery_pct']:.1f}% of 2019",
+    )
+    headline_3.metric(
+        "Nominal room revenue",
+        f"S${latest_hotel['room_revenue_sgd_thousand'] / 1_000_000:.2f}B",
+        f"{revenue_change_pct:+.1f}% vs 2019",
+    )
+    headline_4.metric(
+        "Hotel occupancy",
+        f"{latest_hotel['occupancy_pct']:.1f}%",
+        f"{occupancy_change_pp:+.1f} pp vs 2019",
+    )
+
     st.subheader("The recovery is clearer when divided into phases")
     st.write(
         "One continuous monthly series, read across four distinct phases: baseline, "
@@ -285,7 +318,7 @@ with story_tab:
             orientation="h",
             text="recovery_pct",
             color="recovery_pct",
-            color_continuous_scale=["#CBD5E1", "#0F766E"],
+            color_continuous_scale=["#CBD5E1", PRIMARY_COLOUR],
             labels={
                 "recovery_pct": f"{latest_complete_year} arrivals (2019 = 100)",
                 "market": "",
@@ -311,7 +344,7 @@ with story_tab:
     with right_story:
         st.markdown("#### Did hotels recover for the same reason?")
         st.metric(
-            "Average room rate",
+            "Nominal average room rate",
             f"S${latest_hotel['room_rate_sgd']:,.0f}",
             f"{room_rate_change_pct:+.1f}% vs 2019",
         )
@@ -320,7 +353,7 @@ with story_tab:
             f"{total_recovery_pct:.1f}% of 2019",
         )
         st.write(
-            "Hotel room revenue exceeded its 2019 level even though visitor arrivals and "
+            "Nominal hotel room revenue exceeded its 2019 level even though visitor arrivals and "
             "occupancy had not fully returned. Higher nominal room rates therefore matter "
             "to the revenue story; visitor volume alone is not a sufficient explanation."
         )
@@ -331,104 +364,145 @@ with story_tab:
         )
 
 with markets_tab:
-    latest_visitor_date = filtered_visitors["date"].max()
-    latest_selected_arrivals = int(
-        filtered_visitors.loc[
-            filtered_visitors["date"] == latest_visitor_date, "arrivals"
-        ].sum()
+    st.subheader("Explore source-market recovery")
+    selected_markets = st.multiselect(
+        "Source markets",
+        options=countries,
+        default=default_markets,
+        help="Source market means place of residence, not citizenship.",
     )
-    selected_recovery_pct = same_month_recovery(country_data, latest_visitor_date)
-
-    selected_1, selected_2 = st.columns(2)
-    selected_1.metric(
-        f"Selected arrivals, {latest_visitor_date:%b %Y}",
-        f"{latest_selected_arrivals:,.0f}",
-    )
-    selected_2.metric(
-        "Selected recovery vs matching 2019 month",
-        "n.a."
-        if selected_recovery_pct is None
-        else f"{selected_recovery_pct:.1f}%",
+    show_2019_reference = st.checkbox(
+        "Show the 2019 reference line on the recovery chart",
+        value=True,
     )
 
-    st.subheader("Visitor arrivals by selected source market")
-    arrivals_figure = px.line(
-        filtered_visitors,
-        x="date",
-        y="arrivals",
-        color="market",
-        labels={"date": "Month", "arrivals": "Visitor arrivals", "market": "Market"},
-    )
-    add_phase_shading(arrivals_figure)
-    polish_figure(arrivals_figure)
-    st.plotly_chart(arrivals_figure, width="stretch")
+    country_data = visitors[
+        (visitors["market_type"] == "country")
+        & (visitors["market"].isin(selected_markets))
+    ].copy()
+    filtered_visitors = country_data[
+        country_data["year"].between(year_range[0], year_range[1])
+    ].copy()
 
-    st.subheader("Recovery relative to the same month in 2019")
-    recovery_data = recovery_index_by_market(country_data)
-    recovery_data = recovery_data[
-        recovery_data["year"].between(year_range[0], year_range[1])
-    ]
-    recovery_figure = px.line(
-        recovery_data,
-        x="date",
-        y="recovery_index",
-        color="market",
-        labels={
-            "date": "Month",
-            "recovery_index": "Recovery index (same month in 2019 = 100)",
-            "market": "Market",
-        },
-    )
-    if show_2019_reference:
-        recovery_figure.add_hline(
-            y=100,
-            line_dash="dash",
-            line_color="#374151",
-            annotation_text="2019 level",
+    if not selected_markets:
+        st.warning("Select at least one source market to display the charts.")
+    elif filtered_visitors.empty:
+        st.warning("No visitor-arrival data are available for the selected filters.")
+    else:
+        latest_visitor_date = filtered_visitors["date"].max()
+        latest_selected_arrivals = int(
+            filtered_visitors.loc[
+                filtered_visitors["date"] == latest_visitor_date, "arrivals"
+            ].sum()
         )
-    add_phase_shading(recovery_figure)
-    polish_figure(recovery_figure)
-    st.plotly_chart(recovery_figure, width="stretch")
-    st.caption(
-        "Each month is compared with the matching calendar month in 2019, reducing "
-        "distortion from regular seasonal peaks and troughs."
-    )
+        selected_recovery_pct = same_month_recovery(
+            country_data, latest_visitor_date
+        )
 
-    st.subheader("Annual comparison for the selected markets")
-    selected_annual = (
-        filtered_visitors.groupby(["market", "year"], as_index=False)["arrivals"]
-        .sum()
-        .pivot(index="market", columns="year", values="arrivals")
-        .reset_index()
-    )
-    selected_annual.columns = [str(column) for column in selected_annual.columns]
-    recovery_column = f"{year_range[1]} vs {year_range[0]} recovery (%)"
-    if (
-        year_range[0] != year_range[1]
-        and str(year_range[0]) in selected_annual.columns
-        and str(year_range[1]) in selected_annual.columns
-    ):
-        selected_baseline = selected_annual[str(year_range[0])].where(
-            selected_annual[str(year_range[0])] > 0
+        selected_1, selected_2 = st.columns(2)
+        selected_1.metric(
+            f"Selected arrivals, {latest_visitor_date:%b %Y}",
+            f"{latest_selected_arrivals:,.0f}",
         )
-        selected_annual[recovery_column] = (
-            selected_annual[str(year_range[1])].div(selected_baseline) * 100
+        selected_2.metric(
+            "Recovery vs matching 2019 month",
+            "n.a."
+            if selected_recovery_pct is None
+            else f"{selected_recovery_pct:.1f}%",
         )
-    selected_config = {
-        str(year): st.column_config.NumberColumn(f"{year} arrivals", format="%,d")
-        for year in range(year_range[0], year_range[1] + 1)
-        if str(year) in selected_annual.columns
-    }
-    if recovery_column in selected_annual.columns:
-        selected_config[recovery_column] = st.column_config.NumberColumn(
-            recovery_column, format="%.1f%%"
+
+        st.subheader("Visitor arrivals by selected source market")
+        arrivals_figure = px.line(
+            filtered_visitors,
+            x="date",
+            y="arrivals",
+            color="market",
+            color_discrete_map=MARKET_COLOURS,
+            labels={
+                "date": "Month",
+                "arrivals": "Visitor arrivals",
+                "market": "Market",
+            },
         )
-    st.dataframe(
-        selected_annual,
-        width="stretch",
-        hide_index=True,
-        column_config=selected_config,
-    )
+        add_phase_shading(arrivals_figure)
+        polish_figure(arrivals_figure)
+        use_horizontal_legend(arrivals_figure)
+        st.plotly_chart(arrivals_figure, width="stretch")
+
+        st.subheader("Recovery relative to the same month in 2019")
+        recovery_data = recovery_index_by_market(country_data)
+        recovery_data = recovery_data[
+            recovery_data["year"].between(year_range[0], year_range[1])
+        ]
+        recovery_figure = px.line(
+            recovery_data,
+            x="date",
+            y="recovery_index",
+            color="market",
+            color_discrete_map=MARKET_COLOURS,
+            labels={
+                "date": "Month",
+                "recovery_index": "Recovery index (same month in 2019 = 100)",
+                "market": "Market",
+            },
+        )
+        if show_2019_reference:
+            recovery_figure.add_hline(
+                y=100,
+                line_dash="dash",
+                line_color="#374151",
+                annotation_text="2019 level",
+            )
+        add_phase_shading(recovery_figure)
+        polish_figure(recovery_figure)
+        use_horizontal_legend(recovery_figure)
+        st.plotly_chart(recovery_figure, width="stretch")
+        st.caption(
+            "Each month is compared with the matching calendar month in 2019, "
+            "reducing distortion from regular seasonal peaks and troughs."
+        )
+
+        st.subheader("Annual comparison for the selected markets")
+        selected_annual = (
+            filtered_visitors.groupby(["market", "year"], as_index=False)[
+                "arrivals"
+            ]
+            .sum()
+            .pivot(index="market", columns="year", values="arrivals")
+            .reset_index()
+        )
+        selected_annual.columns = [
+            str(column) for column in selected_annual.columns
+        ]
+        recovery_column = f"{year_range[1]} vs {year_range[0]} recovery (%)"
+        if (
+            year_range[0] != year_range[1]
+            and str(year_range[0]) in selected_annual.columns
+            and str(year_range[1]) in selected_annual.columns
+        ):
+            selected_baseline = selected_annual[str(year_range[0])].where(
+                selected_annual[str(year_range[0])] > 0
+            )
+            selected_annual[recovery_column] = (
+                selected_annual[str(year_range[1])].div(selected_baseline) * 100
+            )
+        selected_config = {
+            str(year): st.column_config.NumberColumn(
+                f"{year} arrivals", format="%,d"
+            )
+            for year in range(year_range[0], year_range[1] + 1)
+            if str(year) in selected_annual.columns
+        }
+        if recovery_column in selected_annual.columns:
+            selected_config[recovery_column] = st.column_config.NumberColumn(
+                recovery_column, format="%.1f%%"
+            )
+        st.dataframe(
+            selected_annual,
+            width="stretch",
+            hide_index=True,
+            column_config=selected_config,
+        )
 
 with mix_tab:
     st.subheader("The source-market mix changed after the disruption")
@@ -441,13 +515,14 @@ with mix_tab:
         market_comparison,
         BASELINE_YEAR,
         latest_complete_year,
-        number_of_markets=8,
+        number_of_markets=5,
     )
     composition_figure = px.bar(
         composition,
         x="year",
         y="share_pct",
         color="market",
+        color_discrete_map=MARKET_COLOURS,
         barmode="stack",
         text_auto=".1f",
         labels={"year": "", "share_pct": "Share of visitor arrivals (%)", "market": ""},
@@ -464,7 +539,7 @@ with mix_tab:
         y="market",
         orientation="h",
         color="share_change_pp",
-        color_continuous_scale=["#B91C1C", "#F8FAFC", "#0F766E"],
+        color_continuous_scale=["#B91C1C", "#F8FAFC", PRIMARY_COLOUR],
         color_continuous_midpoint=0,
         labels={
             "share_change_pp": f"Change in visitor share, {BASELINE_YEAR}-{latest_complete_year} (pp)",
@@ -533,7 +608,7 @@ with hotels_tab:
         "n.a." if occupancy is None else f"{occupancy:.1f}%",
     )
     hotel_2.metric(
-        f"Average room rate, {latest_hotel_date:%b %Y}",
+        f"Nominal average room rate, {latest_hotel_date:%b %Y}",
         "n.a." if room_rate is None else f"S${room_rate:,.0f}",
     )
 
@@ -547,6 +622,7 @@ with hotels_tab:
         overall_hotels["metric"] == "Average Room Rate"
     ]
 
+    show_phase_key()
     left_chart, right_chart = st.columns(2)
     with left_chart:
         occupancy_figure = px.line(
@@ -559,8 +635,7 @@ with hotels_tab:
         )
         add_phase_shading(
             occupancy_figure,
-            labels=True,
-            label_font_size=9,
+            labels=False,
         )
         polish_figure(occupancy_figure)
         st.plotly_chart(occupancy_figure, width="stretch")
@@ -569,19 +644,21 @@ with hotels_tab:
             room_rate_data,
             x="date",
             y="value",
-            labels={"date": "Month", "value": "Average room rate (S$)"},
-            title="Average room rate",
+            labels={"date": "Month", "value": "Nominal average room rate (S$)"},
+            title="Nominal average room rate",
             color_discrete_sequence=["#0F766E"],
         )
         add_phase_shading(
             rate_figure,
-            labels=True,
-            label_font_size=9,
+            labels=False,
         )
         polish_figure(rate_figure)
         st.plotly_chart(rate_figure, width="stretch")
 
-    st.subheader("Visitor arrivals and room revenue moved together, but not identically")
+    st.subheader(
+        "Visitor arrivals and nominal room revenue moved together, but not identically"
+    )
+    show_phase_key()
     total_arrivals = visitors[
         (visitors["market_type"] == "total")
         & (visitors["year"].between(year_range[0], year_range[1]))
@@ -612,7 +689,7 @@ with hotels_tab:
         .div(room_revenue["baseline"].where(room_revenue["baseline"] > 0))
         * 100
     )
-    room_revenue["series"] = "Hotel room revenue"
+    room_revenue["series"] = "Nominal hotel room revenue"
 
     comparison = pd.concat(
         [
@@ -636,27 +713,26 @@ with hotels_tab:
     comparison_figure.add_hline(y=100, line_dash="dash", line_color="#374151")
     add_phase_shading(
         comparison_figure,
-        labels=True,
-        label_font_size=9,
+        labels=False,
     )
     polish_figure(comparison_figure)
+    use_horizontal_legend(comparison_figure)
     st.plotly_chart(comparison_figure, width="stretch")
 
-    merged_monthly = total_arrivals[["date", "arrivals"]].merge(
-        room_revenue[["date", "value"]].rename(columns={"value": "revenue_index"}),
-        on="date",
-        how="inner",
-    )
-    monthly_correlation = merged_monthly["arrivals"].corr(
-        merged_monthly["revenue_index"]
+    monthly_correlation = paired_recovery_correlation(
+        total_arrivals[["date", "value"]],
+        room_revenue[["date", "value"]],
     )
     st.metric(
         "Descriptive monthly correlation",
         f"{monthly_correlation:.2f}",
-        help="Pearson correlation for the selected year range.",
+        help=(
+            "Pearson correlation between the two same-month 2019 recovery indices "
+            "for the selected year range."
+        ),
     )
     st.warning(
-        "A high correlation means the two series often moved together; it does not show "
+        "A high correlation means the two recovery indices often moved together; it does not show "
         "that one caused the other. Prices, inflation, room supply, business travel, "
         "staycations and major events are plausible additional explanations."
     )
@@ -678,13 +754,14 @@ with methods_tab:
         "- **Annual market recovery:** 2025 annual arrivals divided by 2019 annual arrivals.\n"
         f"- **Major market ranking:** limited to the {MAJOR_MARKET_COUNT} largest markets in 2019.\n"
         "- **Visitor share:** a market's arrivals divided by arrivals from all country markets.\n"
-        "- **Descriptive correlation:** shows co-movement, not causation."
+        "- **Descriptive correlation:** Pearson correlation between the two same-month "
+        "2019 recovery indices; it shows co-movement, not causation."
     )
 
     st.subheader("Analytical phases")
     st.markdown(
         "- **2019 baseline:** pre-disruption comparison year.\n"
-        "- **2020-2021 pandemic shock:** exceptional collapse in international arrivals.\n"
+        "- **March 2020-2021 pandemic shock:** exceptional collapse in international arrivals.\n"
         "- **2022 reopening:** initial return of cross-border travel.\n"
         "- **2023-2025 recovery:** continued recovery and changing source-market mix."
     )
