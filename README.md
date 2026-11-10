@@ -2,9 +2,10 @@
 
 This DS608 group project examines how Singapore's international visitor arrivals recovered after the COVID-19 disruption and whether the recovery aligned with gazetted-hotel occupancy, room rates and room revenue.
 
-The dashboard is interactive. Run `app.py` locally for filters, hover details and
-the complete set of storytelling tabs. A public Streamlit URL will be added after
-the final deployment is connected to this repository.
+**Live dashboard:** [Singapore Tourism Recovery](https://singapore-tourism-recovery.streamlit.app/)
+
+The dashboard is interactive. Open the live application above, or run `app.py`
+locally for filters, hover details and the complete set of storytelling tabs.
 
 ## Dashboard preview
 
@@ -99,9 +100,11 @@ python -m pytest
 
 ## Streamlit deployment
 
-The dashboard is not currently deployed. To run it locally, use the command above after installing the requirements.
+The dashboard is deployed on Streamlit Community Cloud at
+[singapore-tourism-recovery.streamlit.app](https://singapore-tourism-recovery.streamlit.app/).
+To run the app locally, use the command above after installing the requirements.
 
-For a future Streamlit Community Cloud deployment, select `app.py` as the main file. The processed CSV files are included so the dashboard does not depend on a live API request during each page load.
+The deployment uses `app.py` as the main file. The processed CSV files are included so the dashboard does not depend on a live API request during each page load.
 
 ## Methodology
 
