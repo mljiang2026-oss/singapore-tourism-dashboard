@@ -173,7 +173,7 @@ These are descriptive results. Higher nominal room rates and revenue should not 
 ## Final outputs
 
 - [Live Streamlit dashboard](https://singapore-tourism-recovery.streamlit.app/)
-- [Final presentation slides](outputs/presentation/DS608_Singapore_Tourism_Presentation_Clarified_Metrics_Final.pptx)
+- [Final presentation slides](outputs/presentation/DS608_Singapore_Tourism_Final.pptx)
 - [Dashboard preview](outputs/figures/dashboard_overview.jpg)
 - Summary tables in `outputs/tables/`
 
