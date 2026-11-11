@@ -9,7 +9,7 @@ the dashboard narrative and preparing presentation material.
 
 - assess the feasibility and scope of a Singapore tourism-recovery dashboard;
 - distinguish the hotel-statistics dataset from the visitor-arrivals dataset;
-- draft and refine reproducible data-wrangling, analysis and Streamlit code;
+- refine data-wrangling, analysis and Streamlit code;
 - translate teaching-assistant feedback into clearer recovery phases, market
   comparisons, hotel interpretation and causality cautions;
 - suggest automated tests and repository-organisation improvements; and
