@@ -4,12 +4,16 @@ import pandas as pd
 import pytest
 
 from src.analysis import (
+    arrivals_room_revenue_recovery,
     annual_hotel_summary,
     annual_market_comparison,
     annual_total_arrivals,
     composition_with_other,
+    hotel_value,
     major_market_recovery,
     paired_recovery_correlation,
+    recovery_index_by_market,
+    same_month_recovery,
 )
 
 
@@ -88,3 +92,56 @@ def test_recovery_correlation_aligns_dates_and_uses_both_indices() -> None:
     assert paired_recovery_correlation(
         arrivals_index, revenue_index
     ) == pytest.approx(1.0)
+
+
+def test_monthly_recovery_uses_matching_2019_month(
+    visitors: pd.DataFrame,
+) -> None:
+    australia = visitors[
+        (visitors["market_type"] == "country")
+        & (visitors["market"] == "Australia")
+    ]
+    recovery = recovery_index_by_market(australia, 2019)
+
+    assert recovery.loc[
+        recovery["year"] == 2019, "recovery_index"
+    ].eq(100).all()
+    latest_date = pd.Timestamp("2025-12-01")
+    expected = recovery.loc[
+        recovery["date"] == latest_date, "recovery_index"
+    ].iloc[0]
+    assert same_month_recovery(australia, latest_date, 2019) == pytest.approx(
+        expected
+    )
+
+
+def test_hotel_value_uses_all_gazetted_hotels(hotels: pd.DataFrame) -> None:
+    value = hotel_value(
+        hotels,
+        "Average Room Rate",
+        pd.Timestamp("2025-12-01"),
+    )
+
+    assert value == pytest.approx(280.4)
+
+
+def test_arrivals_and_room_revenue_indices_are_aligned(
+    visitors: pd.DataFrame,
+    hotels: pd.DataFrame,
+) -> None:
+    comparison = arrivals_room_revenue_recovery(
+        visitors,
+        hotels,
+        baseline_year=2019,
+        start_year=2019,
+        end_year=2025,
+    )
+
+    assert set(comparison["series"]) == {
+        "Total visitor arrivals",
+        "Nominal hotel room revenue",
+    }
+    baseline = comparison[comparison["date"].dt.year == 2019]
+    assert baseline["value"].eq(100).all()
+    counts = comparison.groupby("series")["date"].nunique()
+    assert counts.nunique() == 1

@@ -5,6 +5,123 @@ from __future__ import annotations
 import pandas as pd
 
 
+def recovery_index_by_market(
+    data: pd.DataFrame,
+    baseline_year: int,
+) -> pd.DataFrame:
+    """Compare each market-month with the matching baseline-year month."""
+    baseline = (
+        data[data["year"] == baseline_year][["market", "month", "arrivals"]]
+        .rename(columns={"arrivals": "baseline_arrivals"})
+        .drop_duplicates(["market", "month"])
+    )
+    result = data.merge(
+        baseline,
+        on=["market", "month"],
+        how="left",
+        validate="many_to_one",
+    )
+    valid_baseline = result["baseline_arrivals"].where(
+        result["baseline_arrivals"] > 0
+    )
+    result["recovery_index"] = result["arrivals"].div(valid_baseline) * 100
+    return result
+
+
+def same_month_recovery(
+    data: pd.DataFrame,
+    latest_date: pd.Timestamp,
+    baseline_year: int,
+) -> float | None:
+    """Return recovery for a selected month against its baseline-year month."""
+    latest_value = data.loc[data["date"] == latest_date, "arrivals"].sum()
+    baseline_value = data.loc[
+        (data["year"] == baseline_year)
+        & (data["month"] == latest_date.month),
+        "arrivals",
+    ].sum()
+    if baseline_value <= 0:
+        return None
+    return float(latest_value / baseline_value * 100)
+
+
+def hotel_value(
+    hotels: pd.DataFrame,
+    metric: str,
+    date: pd.Timestamp,
+    segment: str = "All gazetted hotels",
+) -> float | None:
+    """Return one hotel metric for a date and hotel segment."""
+    values = hotels.loc[
+        (hotels["metric"] == metric)
+        & (hotels["segment"] == segment)
+        & (hotels["date"] == date),
+        "value",
+    ]
+    return None if values.empty else float(values.iloc[0])
+
+
+def _same_month_index(
+    data: pd.DataFrame,
+    value_column: str,
+    baseline_year: int,
+    start_year: int,
+    end_year: int,
+) -> pd.DataFrame:
+    """Create a same-month baseline index for one monthly series."""
+    baseline = data[data["year"] == baseline_year][
+        ["month", value_column]
+    ].rename(columns={value_column: "baseline"})
+    selected = data[data["year"].between(start_year, end_year)].copy()
+    result = selected.merge(
+        baseline,
+        on="month",
+        how="left",
+        validate="many_to_one",
+    )
+    valid_baseline = result["baseline"].where(result["baseline"] > 0)
+    result["recovery_index"] = result[value_column].div(valid_baseline) * 100
+    return result
+
+
+def arrivals_room_revenue_recovery(
+    visitors: pd.DataFrame,
+    hotels: pd.DataFrame,
+    baseline_year: int,
+    start_year: int,
+    end_year: int,
+) -> pd.DataFrame:
+    """Return aligned recovery indices for arrivals and hotel room revenue."""
+    total_arrivals = visitors[visitors["market_type"] == "total"]
+    arrivals_index = _same_month_index(
+        total_arrivals,
+        "arrivals",
+        baseline_year,
+        start_year,
+        end_year,
+    )[["date", "recovery_index"]].rename(
+        columns={"recovery_index": "value"}
+    )
+    arrivals_index["series"] = "Total visitor arrivals"
+
+    room_revenue = hotels[
+        (hotels["metric"] == "Room Revenue")
+        & (hotels["segment"] == "All gazetted hotels")
+    ]
+    revenue_index = _same_month_index(
+        room_revenue,
+        "value",
+        baseline_year,
+        start_year,
+        end_year,
+    )[["date", "recovery_index"]].rename(
+        columns={"recovery_index": "value"}
+    )
+    revenue_index["series"] = "Nominal hotel room revenue"
+
+    return pd.concat([arrivals_index, revenue_index], ignore_index=True)
+
+
 def annual_market_comparison(
     visitors: pd.DataFrame,
     baseline_year: int,

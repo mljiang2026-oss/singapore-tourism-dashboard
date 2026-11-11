@@ -1,22 +1,28 @@
 # AI Usage Statement
 
-We acknowledge the use of OpenAI Codex to support project scoping, validation of public data sources, initial drafting of the data-wrangling pipeline, Streamlit dashboard code, documentation and testing.
+The group used OpenAI ChatGPT and Codex as support tools during this project. They
+were used for project scoping, checking public-data definitions, drafting and
+refactoring Python code, suggesting tests, improving documentation, strengthening
+the dashboard narrative and preparing presentation material.
 
-The prompts asked the tool to assess the feasibility of a Singapore tourism-recovery dashboard, distinguish the linked hotel dataset from the required visitor-arrival dataset, prepare reproducible Python code, and draft project documentation that follows the DS608 group-project requirements.
+## Main uses
 
-A later prompt asked Codex to incorporate teaching-assistant feedback into the
-dashboard's storytelling. Codex helped implement the phase-based narrative,
-major-market recovery ranking, visitor-composition comparison, descriptive hotel
-analysis, explanatory text and automated tests. The group must verify these changes,
-understand the definitions and decide which interpretations to present.
+- assess the feasibility and scope of a Singapore tourism-recovery dashboard;
+- distinguish the hotel-statistics dataset from the visitor-arrivals dataset;
+- draft and refine reproducible data-wrangling, analysis and Streamlit code;
+- translate teaching-assistant feedback into clearer recovery phases, market
+  comparisons, hotel interpretation and causality cautions;
+- suggest automated tests and repository-organisation improvements; and
+- improve the wording and visual structure of the README and presentation.
 
-The generated outputs must be reviewed, run and modified by the group. The group remains responsible for:
+## Human review and corrections
 
-- verifying the data against the original data.gov.sg pages;
-- understanding and explaining every part of the code;
-- testing the calculations and dashboard controls;
-- revising the analysis and written interpretation;
-- recording any additional use of generative AI; and
-- ensuring that the final submission accurately represents the group's own work and conclusions.
+The group checked the definitions and figures against the original data.gov.sg
+sources, ran the complete automated test suite, inspected the interactive dashboard
+and reviewed the presentation slide by slide. The group revised AI-generated wording
+to distinguish source-market share from absolute arrivals, nominal room rate from
+room revenue, correlation from causation, and analytical storytelling phases from
+official policy classifications.
 
-Before submission, add a short list of the main prompts used by each group member and describe any material corrections made to AI-generated output.
+The group understands the code and remains responsible for the final calculations,
+interpretations, design choices and submitted work.

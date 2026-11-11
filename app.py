@@ -5,16 +5,30 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 
 from src.analysis import (
+    arrivals_room_revenue_recovery,
     annual_hotel_summary,
     annual_market_comparison,
     annual_total_arrivals,
     composition_with_other,
+    hotel_value,
     major_market_recovery,
     paired_recovery_correlation,
+    recovery_index_by_market,
+    same_month_recovery,
+)
+from src.plots import (
+    build_hotel_metric_chart,
+    build_market_arrivals_chart,
+    build_market_composition_chart,
+    build_market_recovery_chart,
+    build_market_recovery_ranking,
+    build_market_share_change_chart,
+    build_recovery_comparison_chart,
+    build_total_arrivals_chart,
+    phase_key_html,
 )
 
 
@@ -25,20 +39,6 @@ HOTEL_FILE = DATA_DIR / "hotel_statistics_2019_2025.csv"
 BASELINE_YEAR = 2019
 MAJOR_MARKET_COUNT = 15
 
-PRIMARY_COLOUR = "#0F766E"
-ACCENT_COLOUR = "#F59E0B"
-MARKET_COLOURS = {
-    "Australia": "#0072B2",
-    "China": "#D55E00",
-    "India": "#CC79A7",
-    "Indonesia": "#E69F00",
-    "Japan": "#56B4E9",
-    "Malaysia": "#009E73",
-    "Philippines": "#8C6D31",
-    "USA": "#4D4D4D",
-    "Other markets": "#B8C2CC",
-}
-
 ARRIVALS_SOURCE = (
     "https://data.gov.sg/datasets/"
     "d_7e7b2ee60c6ffc962f80fef129cf306e/view"
@@ -47,14 +47,6 @@ HOTEL_SOURCE = (
     "https://data.gov.sg/datasets/"
     "d_8e62605f0c1c948702b6ea0fe45242d3/view"
 )
-
-PHASES = (
-    ("2019 baseline", "2019-01-01", "2019-12-31", ACCENT_COLOUR, 0.06),
-    ("Pandemic shock", "2020-03-01", "2021-12-31", "#64748B", 0.13),
-    ("Reopening", "2022-01-01", "2022-12-31", "#3B82F6", 0.07),
-    ("Recovery", "2023-01-01", "2025-12-31", "#10B981", 0.05),
-)
-
 
 st.set_page_config(
     page_title="Singapore Tourism Recovery",
@@ -70,108 +62,9 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     return visitors, hotels
 
 
-def recovery_index_by_market(data: pd.DataFrame) -> pd.DataFrame:
-    baseline = (
-        data[data["year"] == BASELINE_YEAR][["market", "month", "arrivals"]]
-        .rename(columns={"arrivals": "arrivals_2019"})
-        .drop_duplicates(["market", "month"])
-    )
-    result = data.merge(baseline, on=["market", "month"], how="left")
-    baseline_arrivals = result["arrivals_2019"].where(
-        result["arrivals_2019"] > 0
-    )
-    result["recovery_index"] = result["arrivals"].div(baseline_arrivals) * 100
-    return result
-
-
-def same_month_recovery(data: pd.DataFrame, latest_date: pd.Timestamp) -> float | None:
-    latest_value = data.loc[data["date"] == latest_date, "arrivals"].sum()
-    baseline_value = data.loc[
-        (data["year"] == BASELINE_YEAR)
-        & (data["month"] == latest_date.month),
-        "arrivals",
-    ].sum()
-    if baseline_value <= 0:
-        return None
-    return latest_value / baseline_value * 100
-
-
-def hotel_value(
-    hotels: pd.DataFrame, metric: str, date: pd.Timestamp
-) -> float | None:
-    values = hotels.loc[
-        (hotels["metric"] == metric)
-        & (hotels["segment"] == "All gazetted hotels")
-        & (hotels["date"] == date),
-        "value",
-    ]
-    return None if values.empty else float(values.iloc[0])
-
-
-def add_phase_shading(
-    figure,
-    *,
-    labels: bool = False,
-    label_font_size: int | None = None,
-) -> None:
-    """Mark the four analytical phases without breaking the time series."""
-    for phase, start, end, colour, opacity in PHASES:
-        phase_options = {
-            "x0": start,
-            "x1": end,
-            "fillcolor": colour,
-            "opacity": opacity,
-            "line_width": 0,
-        }
-        if labels:
-            phase_options.update(
-                annotation_text=phase,
-                annotation_position="top left",
-            )
-            if label_font_size is not None:
-                phase_options["annotation_font_size"] = label_font_size
-        figure.add_vrect(
-            **phase_options,
-        )
-
-
-def polish_figure(figure, *, legend_title: str = "") -> None:
-    figure.update_layout(
-        hovermode="x unified",
-        legend_title_text=legend_title,
-        font=dict(color="#1F2937"),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=10, r=10, t=45, b=10),
-    )
-
-
-def use_horizontal_legend(figure) -> None:
-    """Keep multi-series charts wide by placing the legend above the plot."""
-    figure.update_layout(
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="left",
-            x=0,
-        )
-    )
-
-
 def show_phase_key() -> None:
     """Display one compact key instead of repeating labels inside small charts."""
-    items = []
-    for phase, _start, _end, colour, _opacity in PHASES:
-        items.append(
-            "<span class='phase-item'>"
-            f"<span class='phase-swatch' style='background:{colour}'></span>"
-            f"{phase}</span>"
-        )
-    st.markdown(
-        "<div class='phase-key'>" + "".join(items) + "</div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(phase_key_html(), unsafe_allow_html=True)
 
 
 st.markdown(
@@ -290,15 +183,7 @@ with story_tab:
     )
 
     total_monthly = visitors[visitors["market_type"] == "total"].copy()
-    story_figure = px.area(
-        total_monthly,
-        x="date",
-        y="arrivals",
-        labels={"date": "Month", "arrivals": "Total visitor arrivals"},
-        color_discrete_sequence=["#0F766E"],
-    )
-    add_phase_shading(story_figure, labels=True)
-    polish_figure(story_figure)
+    story_figure = build_total_arrivals_chart(total_monthly)
     st.plotly_chart(story_figure, width="stretch")
 
     st.info(
@@ -311,28 +196,9 @@ with story_tab:
     with left_story:
         st.markdown("#### Which major market recovered fastest?")
         ranking = major_recovery.head(10).sort_values("recovery_pct")
-        ranking_figure = px.bar(
+        ranking_figure = build_market_recovery_ranking(
             ranking,
-            x="recovery_pct",
-            y="market",
-            orientation="h",
-            text="recovery_pct",
-            color="recovery_pct",
-            color_continuous_scale=["#CBD5E1", PRIMARY_COLOUR],
-            labels={
-                "recovery_pct": f"{latest_complete_year} arrivals (2019 = 100)",
-                "market": "",
-            },
-        )
-        ranking_figure.add_vline(
-            x=100,
-            line_dash="dash",
-            line_color="#334155",
-            annotation_text="2019 level",
-        )
-        ranking_figure.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        ranking_figure.update_layout(
-            coloraxis_showscale=False, margin=dict(l=10, r=35, t=20, b=10)
+            latest_complete_year,
         )
         st.plotly_chart(ranking_figure, width="stretch")
         st.caption(
@@ -396,7 +262,9 @@ with markets_tab:
             ].sum()
         )
         selected_recovery_pct = same_month_recovery(
-            country_data, latest_visitor_date
+            country_data,
+            latest_visitor_date,
+            BASELINE_YEAR,
         )
 
         selected_1, selected_2 = st.columns(2)
@@ -412,50 +280,18 @@ with markets_tab:
         )
 
         st.subheader("Visitor arrivals by selected source market")
-        arrivals_figure = px.line(
-            filtered_visitors,
-            x="date",
-            y="arrivals",
-            color="market",
-            color_discrete_map=MARKET_COLOURS,
-            labels={
-                "date": "Month",
-                "arrivals": "Visitor arrivals",
-                "market": "Market",
-            },
-        )
-        add_phase_shading(arrivals_figure)
-        polish_figure(arrivals_figure)
-        use_horizontal_legend(arrivals_figure)
+        arrivals_figure = build_market_arrivals_chart(filtered_visitors)
         st.plotly_chart(arrivals_figure, width="stretch")
 
         st.subheader("Recovery relative to the same month in 2019")
-        recovery_data = recovery_index_by_market(country_data)
+        recovery_data = recovery_index_by_market(country_data, BASELINE_YEAR)
         recovery_data = recovery_data[
             recovery_data["year"].between(year_range[0], year_range[1])
         ]
-        recovery_figure = px.line(
+        recovery_figure = build_market_recovery_chart(
             recovery_data,
-            x="date",
-            y="recovery_index",
-            color="market",
-            color_discrete_map=MARKET_COLOURS,
-            labels={
-                "date": "Month",
-                "recovery_index": "Recovery index (same month in 2019 = 100)",
-                "market": "Market",
-            },
+            show_reference=show_2019_reference,
         )
-        if show_2019_reference:
-            recovery_figure.add_hline(
-                y=100,
-                line_dash="dash",
-                line_color="#374151",
-                annotation_text="2019 level",
-            )
-        add_phase_shading(recovery_figure)
-        polish_figure(recovery_figure)
-        use_horizontal_legend(recovery_figure)
         st.plotly_chart(recovery_figure, width="stretch")
         st.caption(
             "Each month is compared with the matching calendar month in 2019, "
@@ -517,38 +353,14 @@ with mix_tab:
         latest_complete_year,
         number_of_markets=5,
     )
-    composition_figure = px.bar(
-        composition,
-        x="year",
-        y="share_pct",
-        color="market",
-        color_discrete_map=MARKET_COLOURS,
-        barmode="stack",
-        text_auto=".1f",
-        labels={"year": "", "share_pct": "Share of visitor arrivals (%)", "market": ""},
-    )
-    composition_figure.update_layout(
-        yaxis_range=[0, 100], margin=dict(l=10, r=10, t=20, b=10)
-    )
+    composition_figure = build_market_composition_chart(composition)
     st.plotly_chart(composition_figure, width="stretch")
 
     major_share_change = major_recovery.sort_values("share_change_pp")
-    share_figure = px.bar(
+    share_figure = build_market_share_change_chart(
         major_share_change,
-        x="share_change_pp",
-        y="market",
-        orientation="h",
-        color="share_change_pp",
-        color_continuous_scale=["#B91C1C", "#F8FAFC", PRIMARY_COLOUR],
-        color_continuous_midpoint=0,
-        labels={
-            "share_change_pp": f"Change in visitor share, {BASELINE_YEAR}-{latest_complete_year} (pp)",
-            "market": "",
-        },
-    )
-    share_figure.add_vline(x=0, line_color="#334155")
-    share_figure.update_layout(
-        coloraxis_showscale=False, margin=dict(l=10, r=10, t=20, b=10)
+        BASELINE_YEAR,
+        latest_complete_year,
     )
     st.plotly_chart(share_figure, width="stretch")
 
@@ -625,103 +437,45 @@ with hotels_tab:
     show_phase_key()
     left_chart, right_chart = st.columns(2)
     with left_chart:
-        occupancy_figure = px.line(
+        occupancy_figure = build_hotel_metric_chart(
             occupancy_data,
-            x="date",
-            y="value",
-            labels={"date": "Month", "value": "Occupancy rate (%)"},
             title="Average hotel occupancy rate",
-            color_discrete_sequence=["#2563EB"],
+            y_axis_label="Occupancy rate (%)",
+            colour="#2563EB",
         )
-        add_phase_shading(
-            occupancy_figure,
-            labels=False,
-        )
-        polish_figure(occupancy_figure)
         st.plotly_chart(occupancy_figure, width="stretch")
     with right_chart:
-        rate_figure = px.line(
+        rate_figure = build_hotel_metric_chart(
             room_rate_data,
-            x="date",
-            y="value",
-            labels={"date": "Month", "value": "Nominal average room rate (S$)"},
             title="Nominal average room rate",
-            color_discrete_sequence=["#0F766E"],
+            y_axis_label="Nominal average room rate (S$)",
+            colour="#0F766E",
         )
-        add_phase_shading(
-            rate_figure,
-            labels=False,
-        )
-        polish_figure(rate_figure)
         st.plotly_chart(rate_figure, width="stretch")
 
     st.subheader(
         "Visitor arrivals and nominal room revenue moved together, but not identically"
     )
     show_phase_key()
-    total_arrivals = visitors[
-        (visitors["market_type"] == "total")
-        & (visitors["year"].between(year_range[0], year_range[1]))
-    ][["date", "year", "month", "arrivals"]].copy()
-    total_baseline = visitors[
-        (visitors["market_type"] == "total")
-        & (visitors["year"] == BASELINE_YEAR)
-    ][["month", "arrivals"]].rename(columns={"arrivals": "baseline"})
-    total_arrivals = total_arrivals.merge(total_baseline, on="month", how="left")
-    total_arrivals["value"] = (
-        total_arrivals["arrivals"]
-        .div(total_arrivals["baseline"].where(total_arrivals["baseline"] > 0))
-        * 100
+    comparison = arrivals_room_revenue_recovery(
+        visitors,
+        hotels,
+        BASELINE_YEAR,
+        year_range[0],
+        year_range[1],
     )
-    total_arrivals["series"] = "Total visitor arrivals"
-
-    room_revenue = overall_hotels[overall_hotels["metric"] == "Room Revenue"][
-        ["date", "year", "month", "value"]
-    ].copy()
-    revenue_baseline = hotels[
-        (hotels["metric"] == "Room Revenue")
-        & (hotels["segment"] == "All gazetted hotels")
-        & (hotels["year"] == BASELINE_YEAR)
-    ][["month", "value"]].rename(columns={"value": "baseline"})
-    room_revenue = room_revenue.merge(revenue_baseline, on="month", how="left")
-    room_revenue["value"] = (
-        room_revenue["value"]
-        .div(room_revenue["baseline"].where(room_revenue["baseline"] > 0))
-        * 100
-    )
-    room_revenue["series"] = "Nominal hotel room revenue"
-
-    comparison = pd.concat(
-        [
-            total_arrivals[["date", "value", "series"]],
-            room_revenue[["date", "value", "series"]],
-        ],
-        ignore_index=True,
-    )
-    comparison_figure = px.line(
-        comparison,
-        x="date",
-        y="value",
-        color="series",
-        labels={
-            "date": "Month",
-            "value": "Recovery index (same month in 2019 = 100)",
-            "series": "",
-        },
-        color_discrete_sequence=["#2563EB", "#0F766E"],
-    )
-    comparison_figure.add_hline(y=100, line_dash="dash", line_color="#374151")
-    add_phase_shading(
-        comparison_figure,
-        labels=False,
-    )
-    polish_figure(comparison_figure)
-    use_horizontal_legend(comparison_figure)
+    comparison_figure = build_recovery_comparison_chart(comparison)
     st.plotly_chart(comparison_figure, width="stretch")
 
+    arrivals_index = comparison[
+        comparison["series"] == "Total visitor arrivals"
+    ]
+    revenue_index = comparison[
+        comparison["series"] == "Nominal hotel room revenue"
+    ]
     monthly_correlation = paired_recovery_correlation(
-        total_arrivals[["date", "value"]],
-        room_revenue[["date", "value"]],
+        arrivals_index,
+        revenue_index,
     )
     st.metric(
         "Descriptive monthly correlation",

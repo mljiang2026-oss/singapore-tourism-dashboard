@@ -2,6 +2,8 @@
 
 This DS608 group project examines how Singapore's international visitor arrivals recovered after the COVID-19 disruption and whether the recovery aligned with gazetted-hotel occupancy, room rates and room revenue.
 
+**Team:** Jiang Minglan and Gou Hongyu
+
 **Live dashboard:** [Singapore Tourism Recovery](https://singapore-tourism-recovery.streamlit.app/)
 
 The dashboard is interactive. Open the live application above, or run `app.py`
@@ -36,6 +38,10 @@ How did international visitor arrivals from major source markets recover relativ
 
 The dataset originally linked during topic exploration is the hotel-statistics table. It is combined with the visitor-arrivals table to support both demand-side and hotel-sector analysis.
 
+The source datasets are governed by the
+[Singapore Open Data Licence](https://data.gov.sg/privacy-and-terms). This project
+reports aggregated monthly statistics and does not use personal data.
+
 ## Repository structure
 
 ```text
@@ -52,9 +58,11 @@ singapore-tourism-dashboard/
 │   └── PROJECT_PROPOSAL.md
 ├── src/
 │   ├── analysis.py
+│   ├── plots.py
 │   └── wrangle.py
 ├── outputs/
 │   ├── figures/
+│   ├── presentation/
 │   └── tables/
 └── tests/
     ├── test_analysis.py
@@ -106,6 +114,21 @@ To run the app locally, use the command above after installing the requirements.
 
 The deployment uses `app.py` as the main file. The processed CSV files are included so the dashboard does not depend on a live API request during each page load.
 
+## Code organisation
+
+Each Python module has one main objective:
+
+- `src/wrangle.py` downloads, reshapes and validates the official data, then writes
+  reproducible processed files.
+- `src/analysis.py` contains reusable calculations for recovery indices, annual
+  comparisons, visitor mix, hotel summaries and correlation.
+- `src/plots.py` contains reusable Plotly chart builders and shared chart styling.
+- `app.py` loads the processed data and connects the analysis and charts to the
+  Streamlit interface.
+
+This separation keeps data preparation, calculations, visualisation and UI logic
+independently testable and easier to explain.
+
 ## Methodology
 
 The visitor-arrival source is hierarchical: it contains an overall total, geographic regions and individual source markets. The wrangling script preserves those levels so that regional totals are not accidentally added to country totals. It also checks that dates are month starts, the year and month columns agree with each date, all months from January 2019 through December 2025 are present, and measure values are finite and non-negative.
@@ -126,7 +149,14 @@ Visitor composition is measured as each country market's share of all country-ma
 arrivals. The descriptive correlation compares the two same-month 2019 recovery
 indices over the selected period; it does not establish causality.
 
-## Preliminary findings
+The four phases shown in the dashboard are an analytical storytelling framework,
+not an official government classification. They roughly align with the 2019
+baseline, the March 2020-2021 pandemic shock, reopening during 2022 and continued
+recovery from 2023 to 2025. Annual hotel occupancy and room rate are reported as
+the arithmetic mean of the 12 published monthly observations; annual room revenue
+is the sum of the monthly values.
+
+## Key findings
 
 The processed official data currently show:
 
@@ -139,6 +169,13 @@ The processed official data currently show:
 - Nominal hotel room revenue reached S$5.37 billion in 2025, 27.9% above 2019 even though total visitor arrivals had not fully returned to the 2019 level.
 
 These are descriptive results. Higher nominal room rates and revenue should not be interpreted as proof that visitor recovery caused hotel performance, and the monetary figures have not been adjusted for inflation.
+
+## Final outputs
+
+- [Live Streamlit dashboard](https://singapore-tourism-recovery.streamlit.app/)
+- [Final presentation slides](outputs/presentation/DS608_Singapore_Tourism_Presentation_Clarified_Metrics_Final.pptx)
+- [Dashboard preview](outputs/figures/dashboard_overview.jpg)
+- Summary tables in `outputs/tables/`
 
 ## Limitations
 

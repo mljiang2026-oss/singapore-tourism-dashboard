@@ -5,3 +5,8 @@ __pycache__/
 .pytest_cache/
 .streamlit/secrets.toml
 .env
+.chart-data-*/
+.codex-build/
+.~*
+outputs/presentation/*
+!outputs/presentation/DS608_Singapore_Tourism_Presentation_Clarified_Metrics_Final.pptx

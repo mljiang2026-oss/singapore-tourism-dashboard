@@ -1,20 +1,20 @@
 # Contribution Statement
 
-Replace the placeholders below with the final group-member names and actual contributions. Contributions should match the GitHub commit and pull-request history.
+The responsibilities below summarise the work recorded in the repository's commit
+and pull-request history.
 
 | Group member | Primary responsibility | Additional contributions |
 | --- | --- | --- |
-| [Member 1] | Data acquisition, cleaning and validation | Reviewed analysis and presentation |
-| [Member 2] | Exploratory analysis and visualisation | Reviewed data definitions and limitations |
-| [Member 3] | Streamlit dashboard and deployment | Repository organisation and presentation |
+| Jiang Minglan | Project scoping; initial repository and wrangling pipeline; recovery analysis and data storytelling | Dashboard and UI iteration; documentation; presentation slides; Streamlit deployment |
+| Gou Hongyu | Data-quality validation; dashboard filters; processed-data tests | Visual hierarchy and dashboard refresh; review of data definitions and limitations |
 
 ## Collaboration workflow
 
-The group will develop changes on feature branches and merge them through reviewed pull requests. Suggested branches include:
+The group developed substantial changes on feature branches and merged them through
+pull requests. The repository history records separate work on data quality, dashboard
+storytelling, visual design and documentation in pull requests #1-#5. Before
+submission, both members reviewed the data definitions, calculations, dashboard,
+presentation and limitations.
 
-- `feature-data-wrangling`
-- `feature-analysis`
-- `feature-streamlit-dashboard`
-- `docs-proposal-readme`
-
-All members will review the final README, dashboard, presentation and limitations before submission.
+GitHub commits and pull requests remain the primary evidence for individual work and
+collaboration.
